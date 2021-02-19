@@ -280,7 +280,14 @@ export class WhatsAppController {
                     }
 
                     this.el.panelMessagesContainer.appendChild(messageEl); // carrega a visualização da mensagem
-                } else if (me) {
+                } else {
+
+                    let view = message.getViewElement(messageEl); // ver se a mensaem e minha 
+                    this.el.panelMessagesContainer.querySelector('#_' + data.id).innerHTML = view.innerHTML; // pega a mensagem que ja está na tela
+
+                }
+
+                if (this.el.panelMessagesContainer.querySelector('#_' + data.id) && messageEl) {
 
                     let msgEl = this.el.panelMessagesContainer.querySelector('#_' + data.id); // pega a mensagem que ja está na tela
                     msgEl.querySelector('.message-status').innerHTML = message.getStatusViewElement().outerHTML; // atualiza o status da mensagem que ja esta na tela
@@ -740,21 +747,22 @@ export class WhatsAppController {
 
             let documentFile = this.el.inputDocument.files[0];
 
-            if (documentFile.type === 'application/pdf') {
+            if (documentFile.type === 'application/pdf') { // aqui ser o documento for pdf
 
-                Base64.toFile(this.el.imgPanelDocumentPreview.src).then(imageFile => {
+                Base64.toFile(this.el.imgPanelDocumentPreview.src).then(imageFile => { // pegar uma visualização da primeira pagina do arquivo para exibir
 
                     Message.sendDocument(this._activeContact.chatId, this._user.email, documentFile, imageFile, this.el.infoPanelDocumentPreview.innerHTML);
-
+                    // passa qual o chat, quem mandou, o documento, a primeira imagem e as informações do documento
                 });
 
-            } else {
+            } else { // aqui ser for outro tipo de documento
 
                 Message.sendDocument(this._activeContact.chatId, this._user.email, documentFile);
+                // o chat do contato quem mandou e o documento
 
             }
 
-            this.el.btnClosePanelDocumentPreview.click();
+            this.el.btnClosePanelDocumentPreview.click(); // aqui fechar o painel de enviar documento
 
         });
 
