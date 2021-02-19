@@ -1,7 +1,7 @@
-import { Model } from './../util/Model.js'
-import { Firebase } from './../util/firebase.js'
+import { Model } from '../util/Model.js'
+import { Firebase } from '../util/firebase.js'
 import { format } from '../util/format.js';
-import { Upload } from './../util/Upload';
+// import { Upload } from '../util/Upload';
 
 export class Message extends Model {
 
@@ -54,24 +54,20 @@ export class Message extends Model {
 
         return new Promise((s, f) => {
 
-            let uploadTask = Firebase // inserir no firevase na refencia de quem mandou com dada e hora, e o nome do arquivo
-                .hd()
-                .ref(from)
-                .child(Date.now() + '_' + file.name)
-                .put(file);
+            let uploadTask = Firebase.hd().ref(from).child(Date.now() + '_' + file.name).put(file); // inserir no firevase na refencia de quem mandou com dada e hora, e o nome do arquivo
 
-            uploadTask.on('state_changed', snapshot => { // monitora o upload
+            uploadTask.on('state_changed', e => {
 
-                console.log('upload', snapshot);
+                // console.info('upload', e);
 
             }, err => { // aqui ser de erro
+                console.error(err) // mensagem de erro
+            }, () => {
 
-                f(err); // mensagem de erro
+                uploadTask.snapshot.ref.getDownloadURL().then(downloadURL => {
 
-            }, success => { // aqui ser de certo
-
-                s(uploadTask.snapshot); // mostra o arquivo enviado
-
+                    s(downloadURL);
+                });
             });
 
         });
@@ -109,25 +105,25 @@ export class Message extends Model {
 
     static sendDocument(chatId, from, documentFile, imageFile, pdfInfo) { // envio de documentos
 
-        return Message.send(chatId, from, 'document', '', false).then(msgRef => {
+        return Message.send(chatId, from, 'document', '', false).then(msgRef => { // envia a mensagem
 
-            Message.upload(from, documentFile).then(snapshot => {
+            Message.upload(from, documentFile).then(downloadURL => { // faz o upload do arquivo, e fica de olho
 
-                let fileDocumentDownload = snapshot.downloadURL;
+                let fileDocumentDownload = downloadURL; // guarda o link para quando for baixa o documento
 
-                if (imageFile) {
+                if (imageFile) { // aqui ser for pdf
 
-                    Message.upload(from, imageFile).then(snapshot => {
+                    Message.upload(from, imageFile).then(downloadURL2 => { // faz o upload da imagem, e fica de olho
 
-                        let fileImageDownload = snapshot.downloadURL;
+                        let fileImageDownload = downloadURL2; // guarda o link para quando for baixar a image
 
-                        msgRef.set({
-                            content: fileDocumentDownload,
-                            preview: fileImageDownload,
-                            filename: documentFile.name,
-                            size: documentFile.size,
-                            info: pdfInfo,
-                            fileType: documentFile.type,
+                        msgRef.set({ // setar os dados no firebase
+                            content: fileDocumentDownload, // aqui coloca o conteudo do arquivo(o link)
+                            preview: fileImageDownload, // mostra uma previa, passado a imagem salva
+                            filename: documentFile.name, // coloca o nome do documento
+                            size: documentFile.size, // o tamanho do documento
+                            info: pdfInfo, // mostra o numero de pagina e outras informações
+                            fileType: documentFile.type, // o tipo do documento
                             status: 'sent' // mostra que o status, esta como enviado
                         }, {
                             merge: true // mantem todas as outras informações intactas 
@@ -135,13 +131,13 @@ export class Message extends Model {
 
                     });
 
-                } else {
+                } else { // Aqui ser for outro tipo sem ser pdf
 
-                    msgRef.set({
-                        content: fileDocumentDownload,
-                        filename: documentFile.name,
-                        size: documentFile.size,
-                        fileType: documentFile.type,
+                    msgRef.set({ // setar os dados no firebase
+                        content: fileDocumentDownload, // aqui coloca o conteudo do arquivo(o link)
+                        filename: documentFile.name, // nome do arquivo
+                        size: documentFile.size, // o tamanho do documento
+                        fileType: documentFile.type, // o tipo do arquivo
                         status: 'sent' // mostra que o status, esta como enviado
                     }, {
                         merge: true // mantem todas as outras informações intactas 
@@ -177,27 +173,15 @@ export class Message extends Model {
 
         return new Promise((s, f) => {
 
-            let uploadTask = Firebase.hd().ref(from).child(Date.now() + '_' + file.name).put(file);
-
-            uploadTask.on('state_changed', e => {
-
-                // console.info('upload', e);
-
-            }, err => {
-                console.error(err)
-            }, () => {
-
-                uploadTask.snapshot.ref.getDownloadURL().then(downloadURL => {
-                    Message.send(
-                        chatId,
-                        from,
-                        'image',
-                        downloadURL
-                    ).then(() => {
-                        s();
-                    });
+            Message.upload(file, from).then(downloadURL => {
+                Message.send(
+                    chatId,
+                    from,
+                    'image',
+                    downloadURL
+                ).then(() => {
+                    s();
                 });
-
             });
 
         });
@@ -356,6 +340,12 @@ export class Message extends Model {
                         iconEl.classList.value = 'jcxhw icon-doc-doc'; // coloca o icone de word
                         break;
 
+                        // PDF
+                    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                    case 'application/msword':
+                        iconEl.classList.value = 'jcxhw icon-doc-pdf'; // coloca o icone de PDF
+                        break;
+
                         // excel
                     case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
                     case 'application/vnd.ms-excel':
@@ -374,9 +364,9 @@ export class Message extends Model {
 
                 }
 
-                element.querySelector('.message-file-download').on('click', e => {
+                element.querySelector('.message-file-download').on('click', e => { // quando clicar no documento
 
-                    window.open(this.content);
+                    window.open(this.content); // faz o dowload do documento, ou abre ele
 
                 });
 
